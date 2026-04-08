@@ -1,0 +1,13 @@
+[Unit]
+Description=Fix HDMI Monitor Brightness After Suspend
+After=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
+BindsTo=graphical-session.target
+
+[Service]
+Type=oneshot
+Environment=DISPLAY=:0
+ExecStart=/bin/sh -c 'for f in /run/user/%%I/xauth_*; do export XAUTHORITY=$$f; break; done; /usr/local/bin/fix-hdmi-brightness.sh'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target

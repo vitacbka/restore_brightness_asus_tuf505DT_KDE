@@ -1,0 +1,71 @@
+#!/bin/sh
+# /usr/lib/systemd/system-sleep/fix-brightness-after-sleep
+# Восстанавливает яркость после выхода из спящего режима
+# Встроенный: AMD amdgpu_bl2 | Внешний HDMI: NVIDIA через xrandr gamma
+
+LOG="/var/log/brightness-history.log"
+log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] [SLEEP-HOOK] $1" >> "$LOG"; }
+
+case "$1" in
+    post)
+        log "Выход из сна, восстановление яркости..."
+        sleep 3
+
+        # === Встроенный экран (AMD GPU) ===
+        AMDGPU="/sys/class/backlight/amdgpu_bl2"
+        if [ -d "$AMDGPU" ]; then
+            MAX=$(cat "$AMDGPU/max_brightness")
+            # Записываем максимум 3 раза с паузой (обход бага amdgpu)
+            echo "$MAX" > "$AMDGPU/brightness"
+            sleep 1
+            echo "$MAX" > "$AMDGPU/brightness"
+            sleep 1
+            echo "$MAX" > "$AMDGPU/brightness"
+            ACTUAL=$(cat "$AMDGPU/actual_brightness")
+            log "[eDP] brightness=$MAX, actual=$ACTUAL"
+        else
+            log "[eDP] amdgpu_bl2 НЕ НАЙДЕН"
+        fi
+
+        # === Внешний монитор (NVIDIA HDMI) через xrandr ===
+        if command -v xrandr &>/dev/null; then
+            export DISPLAY=:0
+            export XAUTHORITY=$(ls /home/*/Xauthority 2>/dev/null | head -1)
+            if [ -z "$XAUTHORITY" ]; then
+                for userdir in /home/*; do
+                    user=$(basename "$userdir")
+                    test -f "$userdir/.Xauthority" && export XAUTHORITY="$userdir/.Xauthority" && break
+                done
+            fi
+
+            # Получаем список подключённых HDMI/DP мониторов
+            MONITORS=$(xrandr --listmonitors 2>/dev/null | tail -n +2 | awk '{print $NF}')
+            for mon in $MONITORS; do
+                # Увеличиваем gamma для яркости (1.2 = +20% яркости)
+                xrandr --output "$mon" --gamma 1.2:1.2:1.2 --brightness 1.1 2>/dev/null
+                if [ $? -eq 0 ]; then
+                    log "[HDMI] $mon: gamma=1.2, brightness=1.1"
+                fi
+            done
+
+            # Дополнительно: NVIDIA DigitalVibrance
+            if command -v nvidia-settings &>/dev/null; then
+                for dfp in 0 1 2 3; do
+                    nvidia-settings -a "[gpu:0]/DigitalVibrance[DFP-$dfp]=60" 2>/dev/null
+                done
+            fi
+        else
+            log "[HDMI] xrandr не установлен"
+        fi
+
+        log "Восстановление завершено"
+        ;;
+    pre)
+        log "Переход в сон, сохранение текущей яркости..."
+        AMDGPU="/sys/class/backlight/amdgpu_bl2"
+        if [ -d "$AMDGPU" ]; then
+            CUR=$(cat "$AMDGPU/brightness")
+            log "[eDP] Сохранено перед сном: $CUR"
+        fi
+        ;;
+esac

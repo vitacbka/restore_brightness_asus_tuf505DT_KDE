@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Fix HDMI Brightness
+Comment=Восстановление яркости HDMI монитора после сна
+Exec=/usr/local/bin/fix-hdmi-brightness.sh
+Terminal=false
+X-KDE-autostart-condition=ksmserver
+X-GNOME-Autostart-enabled=true
+X-GNOME-Autostart-Phase=Applications

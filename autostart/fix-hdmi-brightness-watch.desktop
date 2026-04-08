@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=HDMI Brightness Watcher
+Comment=Слушает сигналы сна KDE и восстанавливает яркость HDMI
+Exec=/usr/local/bin/fix-hdmi-brightness-watch.sh
+Terminal=false
+X-KDE-autostart-condition=ksmserver
+X-GNOME-Autostart-enabled=true
